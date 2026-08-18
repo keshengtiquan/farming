@@ -5,9 +5,12 @@ extends CharacterBody2D
 
 
 var direction: Vector2
+var last_direction: Vector2
 var speed := 300
 enum Tools  {HOE, AXE, WATER}
 var can_move := true
+@export var tool_direction_offset := 14
+@export var tool_y_offset := 4
 
 var current_tool: Tools = Tools.AXE
 const tool_connection = {
@@ -16,11 +19,14 @@ const tool_connection = {
 	Tools.WATER: 'water',
 }
 
+signal tool_use(tool: Tools, pos: Vector2)
 
 
 func _physics_process(_delta: float) -> void:
 	if can_move:
 		get_input()
+	if direction:
+		last_direction = direction
 	velocity = direction * speed * int(can_move)
 	move_and_slide()
 	animation()
@@ -33,6 +39,9 @@ func get_input() -> void:
 		tool_state_machine.travel(tool_connection[current_tool])
 		$AnimationTree.set("parameters/OneShot/request", AnimationNodeOneShot.ONE_SHOT_REQUEST_FIRE)
 		can_move = false
+		if current_tool in [Tools.HOE, Tools.WATER]:
+			await $AnimationTree.animation_finished
+			tool_use.emit(current_tool, position + last_direction * tool_direction_offset + Vector2(0, tool_y_offset))
 	
 	if Input.is_action_just_pressed("tool_forward") or Input.is_action_just_pressed("tool_backward"):
 		var tool_direction = Input.get_axis("tool_forward", "tool_backward") as int
@@ -54,3 +63,6 @@ func animation() -> void:
 # 只是非循环动画才会触发
 func _on_animation_tree_animation_finished(_anim_name: StringName) -> void:
 	can_move = true
+
+func axe_use():
+	tool_use.emit(current_tool, position + last_direction * tool_direction_offset + Vector2(0, tool_y_offset))
